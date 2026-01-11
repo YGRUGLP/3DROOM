@@ -1,0 +1,468 @@
+/* --- 全局设置 & 基础样式 --- */
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #050510; /* 深邃夜空背景 */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    width: 100vw;
+    height: 100dvh;
+}
+
+/* --- 游戏容器层级 --- */
+#gameContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+}
+
+#css3dLayer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+
+#screenOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    z-index: 3;
+    display: none;
+    pointer-events: auto;
+}
+
+/* --- 开始界面 (Start Screen) --- */
+#startScreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at top left, transparent 50%, rgba(0, 0, 0, 0.8) 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 500;
+    padding-right: 10vw;
+    box-sizing: border-box;
+    transition: opacity 1s ease;
+}
+
+#startScreen h1 {
+    color: #fff;
+    font-size: 42px;
+    margin: 0 0 20px 0;
+    font-weight: 300;
+    letter-spacing: 6px;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    font-family: 'Microsoft YaHei', sans-serif;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    padding-bottom: 10px;
+}
+
+#versionTag {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 2px;
+    margin-bottom: 40px;
+}
+
+#startButton {
+    font-size: 16px;
+    padding: 10px 35px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 30px;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+}
+
+#startButton:hover {
+    background: #fff;
+    color: #000;
+    transform: scale(1.05);
+    box-shadow: 0 0 25px rgba(255, 255, 255, 0.8);
+}
+
+#credits {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+    font-family: sans-serif;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+}
+
+/* 竖屏适配 */
+@media (orientation: portrait) {
+    #startScreen {
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 0;
+        padding-bottom: 20vh;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 70%);
+    }
+
+    #credits {
+        bottom: 10px;
+        right: 0;
+        width: 100%;
+        text-align: center;
+    }
+}
+
+/* --- HUD 界面 (准星、交互提示、FPS) --- */
+#crosshair {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) translateZ(0);
+    z-index: 100;
+    pointer-events: none;
+    box-shadow: 0 0 4px #000;
+    opacity: 0;
+    transition: opacity 0.5s;
+}
+
+#interactionText {
+    position: fixed;
+    top: 60%;
+    left: 50%;
+    transform: translateX(-50%) translateZ(0);
+    color: white;
+    font-size: 14px;
+    text-shadow: 1px 1px 2px black;
+    pointer-events: none;
+    z-index: 110;
+    display: none;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 6px 12px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+#fpsCounter {
+    position: fixed;
+    top: 60px;
+    right: 20px;
+    color: #0f0;
+    font-family: monospace;
+    z-index: 130;
+    display: none;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+}
+
+/* --- 电脑浏览器选择界面 --- */
+#browserSelection {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(20, 20, 20, 0.95);
+    color: white;
+    padding: 25px;
+    border-radius: 15px;
+    z-index: 300;
+    display: none;
+    text-align: center;
+    border: 1px solid #007bff;
+    box-shadow: 0 0 25px rgba(0, 123, 255, 0.4);
+    backdrop-filter: blur(10px);
+    min-width: 300px;
+}
+
+.select-btn {
+    display: block;
+    width: 200px;
+    margin: 15px auto;
+    padding: 12px;
+    background: #333;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s;
+    font-size: 16px;
+}
+
+.select-btn:hover {
+    background: #007bff;
+    border-color: #fff;
+}
+
+.custom-url-container {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #444;
+}
+
+.custom-url-input {
+    width: 180px;
+    padding: 8px 12px;
+    margin-right: 5px;
+    background: #333;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.custom-url-btn {
+    padding: 8px 12px;
+    background: #555;
+    color: white;
+    border: 1px solid #666;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.custom-url-btn:hover {
+    background: #007bff;
+}
+
+/* --- 顶部控制面板 --- */
+#controlPanel {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 150;
+}
+
+.ctrl-btn {
+    padding: 5px 10px;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    backdrop-filter: blur(4px);
+    text-align: center;
+    min-width: 60px;
+    pointer-events: auto;
+}
+
+#exitSeatBtn,
+#exitBedBtn {
+    background: rgba(255, 50, 50, 0.6);
+}
+
+.nav-btn {
+    background: rgba(0, 123, 255, 0.6);
+}
+
+/* --- 设置按钮与面板 --- */
+#settingsBtn {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    width: 40px;
+    height: 40px;
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 160;
+    font-size: 20px;
+    backdrop-filter: blur(5px);
+    transition: all 0.3s ease;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#settingsBtn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: rotate(90deg);
+}
+
+#settingsPanel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(15, 15, 15, 0.95);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    z-index: 400;
+    display: none;
+    min-width: 250px;
+    border: 1px solid #444;
+}
+
+.setting-select {
+    background: #333;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 2px 5px;
+    outline: none;
+}
+
+/* --- 移动端虚拟摇杆与按钮 --- */
+#joystick {
+    position: fixed;
+    bottom: 50px;
+    left: 50px;
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    z-index: 110;
+    display: none;
+    pointer-events: none;
+}
+
+#knob {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    left: 35px;
+    top: 35px;
+}
+
+#jumpBtn {
+    position: fixed;
+    bottom: 50px;
+    right: 50px;
+    width: 80px;
+    height: 80px;
+    background: rgba(0, 123, 255, 0.7);
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    z-index: 110;
+    display: none;
+    cursor: pointer;
+    color: white;
+    font-size: 14px;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    touch-action: none;
+}
+
+/* --- 笔记本弹窗样式 --- */
+#notebookOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 600;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.note-paper {
+    background: #fffef0;
+    width: 90%;
+    max-width: 500px;
+    padding: 40px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    border-radius: 5px;
+    font-family: 'Kaiti', 'SimKai', 'Microsoft YaHei', serif;
+    color: #333;
+    position: relative;
+    transform: scale(0.9);
+    transition: transform 0.3s;
+}
+
+.note-paper h2 {
+    margin-top: 0;
+    border-bottom: 2px solid #555;
+    padding-bottom: 10px;
+    font-weight: bold;
+}
+
+.note-paper p {
+    font-size: 18px;
+    line-height: 1.6;
+    text-indent: 2em;
+}
+
+.close-note-btn {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    padding: 8px 20px;
+    background: #333;
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.close-note-btn:hover {
+    background: #555;
+}
+
+/* --- 屏幕旋转提示 --- */
+#orientationOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    z-index: 9999;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    text-align: center;
+}
+
+.rotate-icon {
+    font-size: 40px;
+    margin-bottom: 20px;
+    animation: rotate 2s infinite ease-in-out;
+}
+
+@keyframes rotate {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(-90deg); }
+    100% { transform: rotate(-90deg); }
+}

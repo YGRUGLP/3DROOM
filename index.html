@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover">
+    <title>我的 3D 房间 v0.16 - 星空完整版</title>
+    
+    <!-- 引入外部样式表 -->
+    <link rel="stylesheet" href="/3DROOM/style.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS3DRenderer.js"></script>
+</head>
+<body>
+
+    <div id="gameContainer"></div>
+    <div id="css3dLayer"></div>
+    <div id="screenOverlay"></div>
+    <div id="crosshair"></div>
+    <div id="interactionText"></div>
+    <div id="fpsCounter">FPS: 60</div>
+    
+    <div id="orientationOverlay">
+        <div class="rotate-icon">📱 ➡️ 💻</div>
+        <h2>请旋转屏幕体验效果更佳</h2>
+        <p>此游戏专为横屏设计</p>
+    </div>
+    
+    <div id="controlPanel">
+        <div id="exitSeatBtn" class="ctrl-btn">离开座位</div>
+        <div id="exitBedBtn" class="ctrl-btn" style="display:none;">起床</div>
+        <div id="selectPageBtn" class="ctrl-btn nav-btn">选择网页</div>
+        <div id="refreshPageBtn" class="ctrl-btn nav-btn">刷新网页</div>
+    </div>
+    
+    <div id="settingsBtn">⚙️</div>
+
+    <div id="jumpBtn">跳跃</div>
+
+    <!-- 笔记本内容弹窗 -->
+    <div id="notebookOverlay">
+        <div class="note-paper">
+            <h2>开发者留言</h2>
+            <p>感谢你玩我的游戏！虽然很无聊但是还是很感谢，当初做这玩意儿本来是想做成恐怖游戏的，想了想，还是算了，最终做成逛图模拟器了，如果你有什么意见的话可以和我分享分享！</p>
+            <button class="close-note-btn" onclick="closeNotebook()">关闭笔记</button>
+        </div>
+    </div>
+
+    <div id="browserSelection">
+        <h3 style="margin-top:0">选择浏览内容</h3>
+        <button class="select-btn" onclick="loadPage('https://www.bilibili.com/')">Bilibili</button>
+        <button class="select-btn" onclick="loadPage('https://www.4399.com/')">4399 小游戏</button>
+        <div class="custom-url-container">
+            <p style="margin: 10px 0 8px 0; font-size: 14px; color: #aaa;">自定义网址:</p>
+            <div style="display: flex; justify-content: center; align-items: center;">
+                <input type="text" id="customUrlInput" class="custom-url-input" placeholder="https://example.com">
+                <button id="customUrlBtn" class="custom-url-btn">打开</button>
+            </div>
+            <p style="font-size: 12px; color: #777; margin-top: 8px;">注意：部分网站可能因CORS策略无法加载</p>
+        </div>
+        <button style="background:transparent; border:none; color:#aaa; cursor:pointer; margin-top:10px;" onclick="standUp()">取消</button>
+    </div>
+
+    <div id="settingsPanel">
+        <h3 style="margin:0 0 15px 0; font-size:16px; border-bottom:1px solid #333; padding-bottom:10px;">系统设置</h3>
+        
+        <div style="margin: 12px 0; display: flex; justify-content: space-between; align-items: center;">
+            <span>抗锯齿 (Anti-Aliasing)</span><input type="checkbox" id="aaToggle">
+        </div>
+        <div id="aaLevelContainer" style="margin: 12px 0; display: none; justify-content: space-between; align-items: center; padding-left: 20px;">
+            <span style="font-size: 14px; color: #aaa;">└ 程度 (Level)</span>
+            <select id="aaLevel" class="setting-select">
+                <option value="low">低 (Low)</option>
+                <option value="mid" selected>中 (Med)</option>
+                <option value="high">高 (High)</option>
+            </select>
+        </div>
+
+        <div style="margin: 12px 0; display: flex; justify-content: space-between; align-items: center;">
+            <span>显示帧率 (FPS)</span><input type="checkbox" id="fpsToggle">
+        </div>
+        <div style="margin: 12px 0; display: flex; justify-content: space-between; align-items: center;">
+            <span>固定摇杆</span><input type="checkbox" id="joystickToggle">
+        </div>
+        <div style="margin: 12px 0; display: flex; justify-content: space-between; align-items: center;">
+            <span>音效</span><input type="checkbox" id="soundToggle" checked>
+        </div>
+        <div style="margin: 12px 0; display: flex; justify-content: space-between; align-items: center;">
+            <span>背景音乐</span><input type="checkbox" id="musicToggle" checked>
+        </div>
+        <button id="closeSettings" style="width:100%; padding:8px; margin-top:10px; background:#444; color:white; border:none; border-radius:4px;">关闭</button>
+    </div>
+
+    <div id="joystick"><div id="knob"></div></div>
+
+    <div id="startScreen">
+        <h1>3D ROOM</h1>
+        <div id="versionTag">v0.16</div>
+        <button id="startButton">ENTER ROOM</button>
+        <div id="credits">by雀云andGemini,Suno</div>
+    </div>
+
+    <script>
+        const ROOM_ELEVATION = 0.2; 
+        let camera, scene, renderer, cssRenderer, cssScene, screenIframe;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        const playerHeight = 1.6;
+        const moveSpeed = 0.08;
+        const lookSpeed = 0.0035;
+        let yaw = 0, pitch = 0, targetFOV = 75;
+        const raycaster = new THREE.Raycaster();
+        const centerPoint = new THREE.Vector2(0, 0); 
+        let isSitting = false;
+        let isSleeping = false;
+        
+        let isJumping = false;
+        let jumpVelocity = 0;
+        const jumpPower = 0.12; 
+        const gravity = 0.01; 
+        let isOnGround = true;
+
+        let doorGroup;
+        let isDoorOpen = false;
+        let doorTargetRotation = 0;
+
+        let clockGroup, clockHands = {}; 
+        let lastClockSecond = -1;
+
+        let warningSign = null;
+        const MAP_LIMIT = 25; 
+        const wallMeshes = [];
+        const treeColliders = [];
+        
+        let joystickId = null, lookTouchId = null;
+        let joyStartX = 0, joyStartY = 0, joyMoveX = 0, joyMoveY = 0;
+        let lastLookX = 0, lastLookY = 0;
+        let mouseDownTime = 0;
+        let showFPS = false, fixedJoystick = false, frameCount = 0, lastTime = performance.now();
+        
+        let soundEnabled = true;
+        let audioContext;
+        let sounds = {};
+        let footstepInterval = null;
+        let lastFootstepTime = 0;
+        const FOOTSTEP_INTERVAL = 400;
+        let ambientSound = null;
+        let ambientPlaying = false;
+        let backgroundMusic = null;
+        let musicEnabled = true;
+        let musicLoaded = false;
+        let autoPlayInterval = null;
+
+        const INTERACTION_DISTANCE = 2.0; // 交互距离
+        const DESCRIPTION_DISTANCE = 3.0; // 描述距离（看得远）
+
+        const MUSIC_URL = 'https://d6.qyshare.store:2083/s/TBVWTxUNFQJUKFCVA50QNUVKFCVA504PGgQBVQMaKFCVA50wIKFCVA50BxpWKFCVA50KFCVA505RGlIOKFCVA50QUKFCVA50UVRSBKFCVA50QHKFCVA50BUbFVhERH9YREMVDRVYREQZRk5CWRlYRVKFCVA50VGxVYRER8Uk4VDRVCR1tYVlMYBQcFKFCVA50RgHBhgGBxgKFCVA50VgcDBg9TBxoDVVIHGgNSVgEaVgFSVhoGDwEBDlIKFCVA50UQMKFCVA50DgUZVV5ZFRsVVlQVDRUCBVUPKFCVA50g4DKFCVA50xpWDwEKFCVA50GgMFKFCVA50lMaVlMCBRpWVgYPVQ4HUQNVDgMVGxVZVlpSFQ0VekJEXlQZWkcEFRsVVFhZQ1JZQ2NOR1IVDRVWQlNeWBhaR1JQFRsVVlMVDRUOVKFCVA509RKFCVA50lECUhpVB1YEGgMPBFIaDw8KFCVA50BRpVUgNSBlYGBKFCVA509WU1EVSg==';
+        const PAINTING_URL = 'https://d2.qyshare.store/s/TBVWTxUNFVFRVlRRVQcBGgBVU1QaKFCVA50wVWDhpWVKFCVA50MKFCVA50GgNVB1UCKFCVA50KFCVA50RUBKFCVA50EHURUbFVhERH9YREMVDRVYREQZRk5CWRlYRVKFCVA50VGxVYRER8Uk4VDRVCR1tYVlMYBQcFKFCVA50RgHBhgGBhgEDwICKFCVA50KFCVA50QEKFCVA50BoCUQ4OGgMDDwQaDwZTBBoDBKFCVA50YHBw4KFCVA50BlVUVFEZVV5ZFRsVVlQVDRVUVKFCVA508OBwMOKFCVA50hoCUwYCGgMGBKFCVA504aDwdTBhpTKFCVA501NSD1MDKFCVA50FMCKFCVA50KFCVA50UVGxVZVlpSFQ0VfnpwaKFCVA50UHBQEHBgYGaKFCVA50YFBgUGKFCVA50hlHWVKFCVA50VGxVUWFlDUllDY05HUhUNFV5aVlBSGEdZUBUbFVZTFQ0VVgVRBQQOBg8aVFJRKFCVA50xoDVgYPGlZVKFCVA50gKFCVA50aBwKFCVA50FVVMCKFCVA50w9SVlQOFUo=';
+        const NOTEBOOK_SOUND_URL = 'https://d2.qyun.store/s/TBVWTxUNFQNTUgICVQQEGgdTKFCVA501MaKFCVA50wEBUxoPVQQDGgQBU1NUBFNWBVIKFCVA50BBUbFVhERH9YREMVDRVYREQZRk5CWRlYRVKFCVA50VGxVYRER8Uk4VDRVCR1tYVlMYBQcFKFCVA50RgHBhgGBhgGDwcBUgBRUhpVVlIGGgMEKFCVA50FEaDwUGKFCVA50hpTVQIODgUBBFZVKFCVA50VYZVV5ZFRsVVlQVDRVUB1ZRUQNVBxoKFCVA50BwVSGgNSB1EaDgUDBhpVBQEOBVYOKFCVA50gNTBwQVGxVZVlpSFQ0VR1ZQUhpRW15HBhoGKFCVA50KFCVA508EBQUZWkcEFRsVVFhZQ1JZQ2NOR1IVDRVWQlNeWBhaR1JQFRsVVlMVDRUFUVIEVgcFKFCVA50hoEBFEEGgMGBlYaDwBTKFCVA50RpSDgUODlJWKFCVA501EFKFCVA50VQVSg==';
+        
+        let isGameStarted = false; 
+
+        const startCameraPos = { x: 2.2, y: 2.8, z: 2.2 };
+        const startLookAt = new THREE.Vector3(0, 0.5, 0); 
+
+        function checkOrientation() {
+            if (!isGameStarted) return;
+            const overlay = document.getElementById('orientationOverlay');
+            if (window.innerWidth < window.innerHeight) {
+                overlay.style.display = 'flex';
+            } else {
+                overlay.style.display = 'none';
+            }
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x050510, 10, 50);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(startCameraPos.x, startCameraPos.y, startCameraPos.z);
+            camera.lookAt(startLookAt);
+
+            renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = false; 
+            renderer.setPixelRatio(1);
+            document.getElementById('gameContainer').appendChild(renderer.domElement);
+
+            cssScene = new THREE.Scene();
+            cssRenderer = new THREE.CSS3DRenderer();
+            cssRenderer.setSize(window.innerWidth, window.innerHeight);
+            cssRenderer.domElement.style.position = 'absolute';
+            cssRenderer.domElement.style.top = '0';
+            document.getElementById('css3dLayer').appendChild(cssRenderer.domElement);
+
+            initScreenOverlay();
+            
+            initAudio();
+            initBackgroundMusic();
+            attemptAutoplay();
+            
+            document.body.addEventListener('click', unlockAudio, { once: true });
+            document.body.addEventListener('touchstart', unlockAudio, { once: true });
+            
+            buildStars(); 
+            buildGrassland(); 
+            buildTrees();
+            buildRoom();
+            buildClock(); 
+            createWebScreen(); 
+            createBarriers(); 
+            initWarningSign(); 
+            setupInputs();
+            animate();
+            
+            window.addEventListener('resize', () => {
+                if (!camera) return;
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                cssRenderer.setSize(window.innerWidth, window.innerHeight);
+                checkOrientation();
+            });
+        }
+
+        function buildStars() {
+            const starGeo = new THREE.BufferGeometry();
+            const starCount = 1500;
+            const pos = [];
+            for(let i=0; i<starCount; i++) {
+                const x = (Math.random() - 0.5) * 150;
+                const y = Math.random() * 80 + 5; 
+                const z = (Math.random() - 0.5) * 150;
+                if(Math.abs(x) < 20 && Math.abs(z) < 20) continue; 
+                pos.push(x, y, z);
+            }
+            starGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            
+            const starMat = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.3,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            const stars = new THREE.Points(starGeo, starMat);
+            scene.add(stars);
+        }
+
+        function createBarriers() {
+            const mat = new THREE.MeshBasicMaterial({ 
+                color: 0xff0000, 
+                transparent: true, 
+                opacity: 0, 
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            
+            const h = 40; 
+            const limit = MAP_LIMIT; 
+            const width = MAP_LIMIT * 2.5; 
+
+            const w1 = new THREE.Mesh(new THREE.PlaneGeometry(width, h), mat.clone());
+            w1.position.set(-limit, 0, 0); w1.rotation.y = Math.PI/2; w1.userData = { axis: 'x', val: -limit };
+            
+            const w2 = new THREE.Mesh(new THREE.PlaneGeometry(width, h), mat.clone());
+            w2.position.set(limit, 0, 0); w2.rotation.y = -Math.PI/2; w2.userData = { axis: 'x', val: limit };
+
+            const w3 = new THREE.Mesh(new THREE.PlaneGeometry(width, h), mat.clone());
+            w3.position.set(0, 0, -limit); w3.userData = { axis: 'z', val: -limit };
+
+            const w4 = new THREE.Mesh(new THREE.PlaneGeometry(width, h), mat.clone());
+            w4.position.set(0, 0, limit); w4.rotation.y = Math.PI; w4.userData = { axis: 'z', val: limit };
+
+            [w1, w2, w3, w4].forEach(w => { w.raycast = function() {}; scene.add(w); wallMeshes.push(w); });
+        }
+
+        function initWarningSign() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.strokeStyle = '#ff3333'; ctx.lineWidth = 10;
+            ctx.strokeRect(10, 10, 492, 236);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; ctx.fillRect(10, 10, 492, 236);
+
+            ctx.font = 'Bold 50px "Microsoft YaHei", Arial, sans-serif';
+            ctx.fillStyle = '#ff3333'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.shadowColor = "red"; ctx.shadowBlur = 15;
+            ctx.fillText('🚫 禁止通行 🚫', 256, 100);
+            ctx.font = '30px Arial';
+            ctx.fillText('NO ENTRY', 256, 170);
+            
+            const tex = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, side: THREE.DoubleSide, depthTest: false, depthWrite: false });
+            
+            warningSign = new THREE.Mesh(new THREE.PlaneGeometry(2, 1), mat);
+            warningSign.renderOrder = 999; warningSign.visible = false;
+            scene.add(warningSign);
+        }
+
+        function updateBarriersAndSign() {
+            if (!isGameStarted) return;
+            const p = camera.position;
+            const limit = MAP_LIMIT;
+            const distThreshold = 5; 
+
+            wallMeshes.forEach(w => {
+                let dist = 0;
+                if (w.userData.axis === 'x') dist = Math.abs(p.x - w.userData.val);
+                else dist = Math.abs(p.z - w.userData.val);
+
+                if (dist < distThreshold) { w.material.opacity = (1 - dist / distThreshold) * 0.3; } 
+                else { w.material.opacity = 0; }
+            });
+
+            if (!warningSign) return;
+
+            const dists = [
+                { dir: 'left',  val: Math.abs(p.x - (-limit)), pos: new THREE.Vector3(-limit + 0.05, 0, p.z), rotY: Math.PI/2 }, 
+                { dir: 'right', val: Math.abs(p.x - limit),    pos: new THREE.Vector3(limit - 0.05, 0, p.z),  rotY: -Math.PI/2 },
+                { dir: 'back',  val: Math.abs(p.z - (-limit)), pos: new THREE.Vector3(p.x, 0, -limit + 0.05), rotY: 0 },
+                { dir: 'front', val: Math.abs(p.z - limit),    pos: new THREE.Vector3(p.x, 0, limit - 0.05),  rotY: Math.PI }
+            ];
+
+            dists.sort((a, b) => a.val - b.val);
+            const nearest = dists[0];
+
+            if (nearest.val < distThreshold) {
+                warningSign.visible = true;
+                warningSign.material.opacity = (1 - nearest.val / distThreshold);
+                if (nearest.dir === 'left' || nearest.dir === 'right') { nearest.pos.z = Math.max(-limit+1, Math.min(limit-1, nearest.pos.z)); } 
+                else { nearest.pos.x = Math.max(-limit+1, Math.min(limit-1, nearest.pos.x)); }
+                
+                const groundY = getGroundHeight(nearest.pos.x, nearest.pos.z);
+                nearest.pos.y = groundY + 1.5; 
+                warningSign.position.copy(nearest.pos);
+                warningSign.rotation.set(0, nearest.rotY, 0);
+            } else {
+                warningSign.visible = false;
+            }
+        }
+
+        function attemptAutoplay() {
+            if (autoPlayInterval) clearInterval(autoPlayInterval);
+            autoPlayInterval = setInterval(() => {
+                if (musicEnabled && backgroundMusic) {
+                    const promise = backgroundMusic.play();
+                    if (promise !== undefined) { promise.then(() => { clearInterval(autoPlayInterval); }).catch(error => {}); }
+                }
+            }, 1000); 
+        }
+
+        function unlockAudio() {
+            if (audioContext && audioContext.state === 'suspended') audioContext.resume();
+            if (musicEnabled && backgroundMusic && backgroundMusic.paused) {
+                backgroundMusic.play().then(() => { if (autoPlayInterval) clearInterval(autoPlayInterval); }).catch(() => {});
+            }
+        }
+
+        function startGameLogic() {
+            isGameStarted = true;
+            toggleFullscreen();
+            unlockAudio();
+            playAmbientSound();
+            if (soundEnabled) playSound('start', 0.8);
+
+            const startScreen = document.getElementById('startScreen');
+            startScreen.style.opacity = '0';
+            setTimeout(() => { startScreen.style.display = 'none'; }, 1000);
+
+            document.getElementById('settingsBtn').style.display = 'flex';
+            document.getElementById('crosshair').style.opacity = '1';
+            document.getElementById('jumpBtn').style.display = 'flex';
+
+            const startPos = camera.position.clone();
+            const endPos = new THREE.Vector3(0, playerHeight + ROOM_ELEVATION, 2);
+            const duration = 2000;
+            const startTime = performance.now();
+            
+            const dummy = new THREE.Object3D();
+            dummy.position.copy(endPos);
+            dummy.lookAt(0, 1.5, -5); 
+            const endRot = dummy.quaternion.clone();
+
+            function transition() {
+                const now = performance.now();
+                const progress = Math.min((now - startTime) / duration, 1);
+                const ease = 1 - Math.pow(1 - progress, 3);
+
+                camera.position.lerpVectors(startPos, endPos, ease);
+                camera.quaternion.slerp(endRot, ease);
+
+                if (progress < 1) {
+                    requestAnimationFrame(transition);
+                } else {
+                    camera.position.copy(endPos);
+                    camera.rotation.set(0, 0, 0);
+                    yaw = 0; pitch = 0;
+                    checkOrientation();
+                }
+            }
+            transition();
+        }
+
+        function initScreenOverlay() { document.getElementById('screenOverlay').style.display = 'block'; }
+
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                initSounds();
+            } catch (e) { soundEnabled = false; }
+        }
+        
+        function initBackgroundMusic() {
+            try {
+                backgroundMusic = new Audio();
+                backgroundMusic.src = MUSIC_URL; backgroundMusic.loop = true; backgroundMusic.volume = 0.3; backgroundMusic.preload = 'auto'; backgroundMusic.crossOrigin = 'anonymous';
+                backgroundMusic.addEventListener('canplay', () => { musicLoaded = true; });
+                backgroundMusic.addEventListener('error', (e) => { musicEnabled = false; document.getElementById('musicToggle').checked = false; });
+                backgroundMusic.load();
+            } catch (e) { console.error(e); }
+        }
+        
+        function playBackgroundMusic() { if (!musicEnabled || !backgroundMusic) return; backgroundMusic.play().catch(error => {}); }
+        function pauseBackgroundMusic() { if (backgroundMusic) { backgroundMusic.pause(); } }
+        function toggleBackgroundMusic() { musicEnabled = !musicEnabled; document.getElementById('musicToggle').checked = musicEnabled; if (musicEnabled) { if (audioContext && audioContext.state === 'suspended') audioContext.resume(); playBackgroundMusic(); playSound('click', 0.5); } else { pauseBackgroundMusic(); } }
+
+        function initSounds() {
+            sounds.footstep = createFootstepSound(); sounds.jump = createJumpSound(); sounds.land = createLandSound();
+            sounds.chair = createChairSound(); sounds.bed = createBedSound(); sounds.click = createClickSound();
+            sounds.start = createStartSound(); sounds.ambient = createAmbientSound();
+            sounds.tick = createTickSound(); 
+
+            if(audioContext) {
+                fetch(NOTEBOOK_SOUND_URL)
+                    .then(response => response.arrayBuffer())
+                    .then(buffer => audioContext.decodeAudioData(buffer))
+                    .then(audioBuffer => { sounds.page = audioBuffer; })
+                    .catch(e => console.error("日记音效加载失败", e));
+            }
+        }
+        
+        function createFootstepSound() { if(!audioContext) return null; const b=audioContext.createBuffer(1,audioContext.sampleRate*0.1,audioContext.sampleRate);const d=b.getChannelData(0);for(let i=0;i<b.length;i++){const e=Math.exp(-i/(audioContext.sampleRate*0.02));d[i]=(Math.random()*2-1)*e*0.2;}return b; }
+        function createJumpSound() { if(!audioContext)return null;const b=audioContext.createBuffer(1,audioContext.sampleRate*0.3,audioContext.sampleRate);const d=b.getChannelData(0);for(let i=0;i<b.length;i++){const t=i/audioContext.sampleRate;const f=100+t*300;const e=Math.exp(-t*4);d[i]=Math.sin(2*Math.PI*f*t)*e*0.3;}return b;}
+        function createLandSound() { if(!audioContext)return null;const b=audioContext.createBuffer(1,audioContext.sampleRate*0.2,audioContext.sampleRate);const d=b.getChannelData(0);for(let i=0;i<b.length;i++){const t=i/audioContext.sampleRate;const f=80*Math.exp(-t*10);const e=Math.exp(-t*20);d[i]=Math.sin(2*Math.PI*f*t)*e*0.4;}return b;}
+        function createChairSound() { if(!audioContext)return null;const b=audioContext.createBuffer(1,audioContext.sampleRate*0.4,audioContext.sampleRate);const d=b.getChannelData(0);for(let i=0;i<b.length;i++){const t=i/audioContext.sampleRate;const f=200+Math.sin(t*30)*50;const e=Math.exp(-t*5);d[i]=Math.sin(2*Math.PI*f*t)*e*0.2;}return b;}
+        function createBedSound() { if(!audioContext)return null;const b=audioContext.createBuffer(1,audioContext.sampleRate*0.5,audioContext.sampleRate);const d=b.getChannelData(0);for(let i=0;i<b.length;i++){const t=i/audioContext.sampleRate;const f=120*Math.exp(-t*3);const e=Math.exp(-t*2);d[i]=Math.sin(2*Math.PI*f*t)*e*0.15;}return b;}
+        function createClickSound() { if(!audioContext)return null;const b=audioContext.createBuffer(1,audioContext.sampleRate*0.05,audioContext.sampleRate);const d=b.getChannelData(0);for(let i=0;i<b.length;i++){const t=i/audioContext.sampleRate;const f=800+Math.random()*400;const e=Math.exp(-t*100);d[i]=Math.sin(2*Math.PI*f*t)*e*0.3;}return b;}
+        function createStartSound() { if(!audioContext)return null;const b=audioContext.createBuffer(1,audioContext.sampleRate*0.8,audioContext.sampleRate);const d=b.getChannelData(0);for(let i=0;i<b.length;i++){const t=i/audioContext.sampleRate;const f=200+t*200;const e=Math.min(t*5,1)*Math.exp(-t*2);d[i]=Math.sin(2*Math.PI*f*t)*e*0.4;}return b;}
+        function createAmbientSound() { if(!audioContext)return null;const b=audioContext.createBuffer(1,audioContext.sampleRate*2,audioContext.sampleRate);const d=b.getChannelData(0);for(let i=0;i<b.length;i++){d[i]=(Math.random()*2-1)*0.03;const t=i/audioContext.sampleRate;d[i]+=Math.sin(2*Math.PI*0.5*t)*0.01;}return b;}
+        
+        function createTickSound() {
+             if(!audioContext) return null;
+             const length = 0.05 * audioContext.sampleRate;
+             const buffer = audioContext.createBuffer(1, length, audioContext.sampleRate);
+             const data = buffer.getChannelData(0);
+             for(let i=0; i<length; i++) {
+                 data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (length * 0.1));
+             }
+             return buffer;
+        }
+
+        function playSound(soundName, volume=1.0, playbackRate=1.0) { if (!soundEnabled || !audioContext || !sounds[soundName]) return; try { const source = audioContext.createBufferSource(); const gainNode = audioContext.createGain(); source.buffer = sounds[soundName]; source.playbackRate.value = playbackRate; gainNode.gain.value = volume; source.connect(gainNode); gainNode.connect(audioContext.destination); source.start(); return source; } catch (e) {} }
+        
+        function playAmbientSound() { 
+            if (!soundEnabled || !audioContext || !sounds.ambient || ambientPlaying) return; 
+            try { 
+                ambientSound = audioContext.createBufferSource(); const gainNode = audioContext.createGain(); ambientSound.buffer = sounds.ambient; ambientSound.loop = true; gainNode.gain.value = 0.1; ambientSound.connect(gainNode); gainNode.connect(audioContext.destination); ambientSound.start(); ambientPlaying = true; 
+            } catch (e) {} 
+        }
+        function stopAmbientSound() { if (ambientSound && ambientPlaying) { try { ambientSound.stop(); ambientPlaying = false; } catch (e) {} } }
+        function toggleSound() { soundEnabled = !soundEnabled; document.getElementById('soundToggle').checked = soundEnabled; if (soundEnabled) { if (audioContext && audioContext.state === 'suspended') audioContext.resume(); playAmbientSound(); playSound('click', 0.5); } else { stopAmbientSound(); if (footstepInterval) { clearInterval(footstepInterval); footstepInterval = null; } } }
+
+        function buildGrassland() {
+            const segments = 64; const geometry = new THREE.PlaneGeometry(60, 60, segments, segments); geometry.rotateX(-Math.PI / 2); 
+            const vertices = geometry.attributes.position.array; const colors = [];
+            for (let i = 0; i < vertices.length; i += 3) {
+                const x = vertices[i]; const z = vertices[i + 2]; let y = 0;
+                if (Math.abs(x) < 3.5 && Math.abs(z) < 4.5) { y = -0.5; } else { y = Math.sin(x * 0.2) * 0.8 + Math.cos(z * 0.15) * 0.8 + Math.sin(x * 0.5 + z * 0.5) * 0.3; y -= 1.0; }
+                vertices[i + 1] = y; const colorVal = Math.max(0.2, Math.min(0.6, (y + 2) / 4)); colors.push(0.1, colorVal + 0.1, 0.1); 
+            }
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3)); geometry.computeVertexNormals();
+            const material = new THREE.MeshBasicMaterial({ vertexColors: true }); const grass = new THREE.Mesh(geometry, material); scene.add(grass);
+        }
+
+        function buildTrees() {
+            const trunkMat = new THREE.MeshBasicMaterial({ color: 0x8B4513 }); const leavesMat = new THREE.MeshBasicMaterial({ color: 0x228B22 });
+            for(let i=0; i<20; i++) {
+                const randX = (Math.random() - 0.5) * 50; const randZ = (Math.random() - 0.5) * 50;
+                if (Math.sqrt(randX*randX + randZ*randZ) < 6.5) continue;
+                const y = getGroundHeight(randX, randZ); const treeGroup = new THREE.Group(); treeGroup.position.set(randX, y, randZ);
+                const scale = 0.8 + Math.random() * 0.8; treeGroup.scale.set(scale, scale, scale);
+                const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 1.5, 8), trunkMat); trunk.position.y = 0.75; treeGroup.add(trunk);
+                const leaves1 = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2, 8), leavesMat); leaves1.position.y = 2.2; treeGroup.add(leaves1);
+                const leaves2 = new THREE.Mesh(new THREE.ConeGeometry(1.0, 1.8, 8), leavesMat); leaves2.position.y = 3.2; treeGroup.add(leaves2);
+                scene.add(treeGroup);
+                treeColliders.push({ x: randX, z: randZ, radius: 0.5 });
+            }
+        }
+
+        function getGroundHeight(x, z) {
+            if (Math.abs(x) < 2.5 && z > -3 && z < 3) return ROOM_ELEVATION;
+            if (Math.abs(x) < 0.45 && z >= 3 && z < 3.5) return ROOM_ELEVATION; 
+            if (Math.abs(x) < 3.5 && Math.abs(z) < 4.5) return -0.5;
+            let y = Math.sin(x * 0.2) * 0.8 + Math.cos(z * 0.15) * 0.8 + Math.sin(x * 0.5 + z * 0.5) * 0.3; y -= 1.0; return y;
+        }
+
+        function toggleDoor() { isDoorOpen = !isDoorOpen; doorTargetRotation = isDoorOpen ? -Math.PI / 2 : 0; playSound('chair', 0.5); }
+
+        function buildRoom() {
+            const matFloor = new THREE.MeshBasicMaterial({ color: 0x8B5A2B });
+            const matWall = new THREE.MeshBasicMaterial({ color: 0x888888 }); 
+            const matBlack = new THREE.MeshBasicMaterial({ color: 0x111111 });
+            const matWood = new THREE.MeshBasicMaterial({ color: 0x3E2723 });
+            const matWhite = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const matBlue = new THREE.MeshBasicMaterial({ color: 0x4A90E2 });
+            const matMetal = new THREE.MeshBasicMaterial({ color: 0x666666 });
+            const matDoor = new THREE.MeshBasicMaterial({ color: 0x8B4513 });
+            const matWindowFrame = new THREE.MeshBasicMaterial({ color: 0x654321 });
+            const matGlass = new THREE.MeshBasicMaterial({ color: 0xADD8E6, transparent: true, opacity: 0.3 });
+            const matLED = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); 
+            const matFoundation = new THREE.MeshBasicMaterial({ color: 0x444444 }); 
+            
+            const foundation = new THREE.Mesh(new THREE.BoxGeometry(5.2, 3, 6.2), matFoundation);
+            foundation.position.set(0, ROOM_ELEVATION - 1.5 - 0.02, 0);
+            scene.add(foundation);
+
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(5, 6), matFloor); floor.rotation.x = -Math.PI / 2; floor.position.y = ROOM_ELEVATION; scene.add(floor);
+            const ceil = new THREE.Mesh(new THREE.PlaneGeometry(5, 6), new THREE.MeshBasicMaterial({ color: 0xAAAAAA })); ceil.rotation.x = Math.PI/2; ceil.position.y = 3 + ROOM_ELEVATION; scene.add(ceil);
+
+            const wallThickness = 0.2; const roomHeight = 3; const roomWidth = 5; const roomDepth = 6;
+            const createSolidWall = (w, h, d, x, y, z) => { const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matWall); mesh.position.set(x, y + ROOM_ELEVATION, z); scene.add(mesh); return mesh; };
+
+            createSolidWall(roomWidth, roomHeight, wallThickness, 0, roomHeight/2, -3 - wallThickness/2);
+            createSolidWall(wallThickness, roomHeight, roomDepth, -2.5 - wallThickness/2, roomHeight/2, 0);
+            
+            const winW = 1.5; const winH = 1.2; const winY = 1.5; const wallX = 2.5 + wallThickness/2;
+            createSolidWall(wallThickness, winY - winH/2, winW, wallX, (winY - winH/2)/2, 0);
+            createSolidWall(wallThickness, roomHeight - (winY + winH/2), winW, wallX, winY + winH/2 + (roomHeight - (winY + winH/2))/2, 0);
+            createSolidWall(wallThickness, roomHeight, (roomDepth - winW) / 2, wallX, roomHeight/2, -3 + (roomDepth - winW) / 4);
+            createSolidWall(wallThickness, roomHeight, (roomDepth - winW) / 2, wallX, roomHeight/2, 3 - (roomDepth - winW) / 4);
+
+            const winGroup = new THREE.Group(); winGroup.position.set(2.5, winY + ROOM_ELEVATION, 0);
+            winGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.05, winH, winW), matGlass));
+            const fBottom = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.05, winW), matWindowFrame); fBottom.position.y = -winH/2; winGroup.add(fBottom);
+            const fTop = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.05, winW), matWindowFrame); fTop.position.y = winH/2; winGroup.add(fTop);
+            const fLeft = new THREE.Mesh(new THREE.BoxGeometry(0.25, winH, 0.05), matWindowFrame); fLeft.position.z = -winW/2; winGroup.add(fLeft);
+            const fRight = new THREE.Mesh(new THREE.BoxGeometry(0.25, winH, 0.05), matWindowFrame); fRight.position.z = winW/2; winGroup.add(fRight);
+            winGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, winW), matWindowFrame));
+            winGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, winH, 0.02), matWindowFrame));
+            scene.add(winGroup);
+
+            const doorW = 0.9; const doorH = 2.2; const frontZ = 3 + wallThickness/2; const leftW = (roomWidth - doorW) / 2; 
+            createSolidWall(leftW, roomHeight, wallThickness, -roomWidth/2 + leftW/2, roomHeight/2, frontZ);
+            createSolidWall(leftW, roomHeight, wallThickness, roomWidth/2 - leftW/2, roomHeight/2, frontZ);
+            createSolidWall(doorW, roomHeight - doorH, wallThickness, 0, doorH + (roomHeight - doorH)/2, frontZ);
+
+            doorGroup = new THREE.Group(); doorGroup.position.set(-doorW/2, 0, 3); doorGroup.name = "DOOR_HINGE";
+            const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(doorW, doorH, 0.05), matDoor); doorMesh.position.set(doorW/2, doorH/2 + ROOM_ELEVATION, 0); doorGroup.add(doorMesh);
+            const handle = new THREE.Mesh(new THREE.SphereGeometry(0.04), matMetal); handle.position.set(doorW - 0.1, doorH/2 + ROOM_ELEVATION, 0.06); doorGroup.add(handle);
+            scene.add(doorGroup);
+
+            createPainting();
+
+            // --- 书柜 ---
+            const bookshelf = new THREE.Group();
+            bookshelf.name = "BOOKSHELF_GROUP"; // 增加名称
+            bookshelf.position.set(1.8, ROOM_ELEVATION, -2.8); 
+            const bsMat = new THREE.MeshBasicMaterial({ color: 0x5D4037 });
+            const bsGroup = new THREE.Group();
+            bsGroup.name = "BOOKSHELF_GROUP"; // 增加名称
+            bsGroup.position.set(1.8, ROOM_ELEVATION, -2.8);
+            bsGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.0, 0.02), bsMat).translateY(1.0).translateZ(-0.15));
+            bsGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.02, 2.0, 0.3), bsMat).translateY(1.0).translateX(-0.39));
+            bsGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.02, 2.0, 0.3), bsMat).translateY(1.0).translateX(0.39));
+            bsGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.02, 0.3), bsMat).translateY(0.01));
+            bsGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.02, 0.3), bsMat).translateY(2.0));
+            const shelfY = [0.5, 1.0, 1.5];
+            const bookColors = [0xcc0000, 0x00cc00, 0x0000cc, 0xffff00, 0x00ffff, 0xff00ff, 0xffffff];
+            shelfY.forEach(y => {
+                bsGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.02, 0.28), bsMat).translateY(y));
+                for(let i=-0.35; i<0.35; i+=0.04 + Math.random()*0.02) {
+                    if(Math.random() > 0.3) {
+                        const h = 0.15 + Math.random() * 0.1;
+                        const d = 0.2 + Math.random() * 0.05;
+                        const col = bookColors[Math.floor(Math.random() * bookColors.length)];
+                        const book = new THREE.Mesh(new THREE.BoxGeometry(0.03, h, d), new THREE.MeshBasicMaterial({color: col}));
+                        book.position.set(i, y + h/2 + 0.01, 0);
+                        bsGroup.add(book);
+                    }
+                }
+            });
+            scene.add(bsGroup);
+
+            const lampGroup = new THREE.Group(); 
+            lampGroup.name = "LAMP_GROUP"; // 增加名称
+            lampGroup.position.set(0, 3 + ROOM_ELEVATION, 0);
+            lampGroup.add(new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.05, 16), matBlack));
+            const lampBody = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.1, 16), matWhite); lampBody.position.y = -0.05; lampGroup.add(lampBody);
+            scene.add(lampGroup);
+
+            scene.add(new THREE.AmbientLight(0xFFFFFF, 1.0));
+
+            const desk = new THREE.Group(); desk.position.set(0, ROOM_ELEVATION, -2.4); 
+            const table = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.05, 0.8), matWood); table.position.y = 0.75; desk.add(table);
+            const legGeo = new THREE.BoxGeometry(0.05, 0.75, 0.05);
+            [[1, 0.375, 0.35], [-1, 0.375, 0.35], [1, 0.375, -0.35], [-1, 0.375, -0.35]].forEach(pos => { const leg = new THREE.Mesh(legGeo, matMetal); leg.position.set(pos[0], pos[1], pos[2]); desk.add(leg); });
+            const monCase = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.47, 0.04), matBlack); monCase.position.set(0, 1.05, -0.1); desk.add(monCase);
+            const createSpeaker = (x) => {
+                const speaker = new THREE.Group(); speaker.position.set(x, 0.9, -0.15);
+                speaker.add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.15), matBlack));
+                const woofer = new THREE.Mesh(new THREE.CircleGeometry(0.04, 16), matMetal); woofer.position.set(0, -0.05, 0.076); speaker.add(woofer);
+                const tweeter = new THREE.Mesh(new THREE.CircleGeometry(0.02, 16), matMetal); tweeter.position.set(0, 0.06, 0.076); speaker.add(tweeter);
+                desk.add(speaker);
+            };
+            createSpeaker(-0.6); createSpeaker(0.6);
+            const pcCase = new THREE.Group(); pcCase.position.set(0.7, 0.35, 0.1);
+            pcCase.add(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.45, 0.45), matBlack));
+            const led = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.3, 0.01), matLED); led.position.set(-0.1, 0, 0.15); pcCase.add(led);
+            desk.add(pcCase);
+            const kbd = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.02, 0.2), matBlack); kbd.position.set(0, 0.78, 0.15); desk.add(kbd);
+            const mouse = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.03, 0.12), matBlack); mouse.position.set(0.45, 0.77, 0.18); desk.add(mouse);
+
+            // --- 水杯 ---
+            const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.035, 0.1, 16), new THREE.MeshBasicMaterial({color: 0xddddff, transparent: true, opacity: 0.6}));
+            cup.position.set(-0.5, 0.82, 0.2); 
+            desk.add(cup);
+
+            // --- 笔记本 ---
+            const notebook = new THREE.Group();
+            notebook.name = "NOTEBOOK_BODY"; 
+            notebook.add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.02, 0.4), new THREE.MeshBasicMaterial({color: 0x222222})));
+            const paper = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.015, 0.38), new THREE.MeshBasicMaterial({color: 0xfffff0}));
+            paper.position.y = 0.005; paper.position.x = 0.005; 
+            notebook.add(paper);
+            notebook.position.set(0, 0.78, 0.5); 
+            notebook.rotation.y = 0.1;
+            desk.add(notebook);
+
+            scene.add(desk);
+
+            const chair = new THREE.Group(); chair.position.set(0, ROOM_ELEVATION, -1.6); chair.name = "CHAIR_BODY";
+            const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.5), matBlack); seat.position.y = 0.44; chair.add(seat);
+            const back = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.6, 0.06), matBlack); back.position.set(0, 0.75, 0.22); chair.add(back);
+            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.4, 8), matMetal); pillar.position.y = 0.2; chair.add(pillar);
+            chair.add(new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.28, 0.03, 5), matBlack).translateY(0.02));
+            scene.add(chair);
+
+            const bed = new THREE.Group(); bed.position.set(-1.7, ROOM_ELEVATION, 1.8); bed.name = "BED_BODY";
+            const bBase = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 2.2), matWood); bBase.position.y = 0.34; bed.add(bBase);
+            [[0.6, 0.15, 1], [-0.6, 0.15, 1], [0.6, 0.15, -1], [-0.6, 0.15, -1]].forEach(pos => { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.1), matWood); leg.position.set(pos[0], pos[1], pos[2]); bed.add(leg); });
+            const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.15, 2.1), new THREE.MeshBasicMaterial({color:0xeeeeee})); mattress.position.y = 0.45; bed.add(mattress);
+            const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.35), matWhite); pillow.position.set(0, 0.56, 0.75); bed.add(pillow);
+            const quilt = new THREE.Mesh(new THREE.BoxGeometry(1.32, 0.2, 1.4), matBlue); quilt.position.set(0, 0.62, -0.2); bed.add(quilt);
+            scene.add(bed);
+        }
+
+        // --- 构建时钟 ---
+        function buildClock() {
+            clockGroup = new THREE.Group();
+            clockGroup.name = "CLOCK_GROUP"; // 增加名称
+            clockGroup.position.set(0.5, 2.2 + ROOM_ELEVATION, -2.95);
+            
+            const face = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.02, 32), new THREE.MeshBasicMaterial({color: 0xffffff}));
+            face.rotation.x = Math.PI / 2; 
+            clockGroup.add(face);
+            
+            const rim = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.02, 8, 32), new THREE.MeshBasicMaterial({color: 0x333333}));
+            clockGroup.add(rim);
+
+            const handMat = new THREE.MeshBasicMaterial({color: 0x000000});
+            const secMat = new THREE.MeshBasicMaterial({color: 0xff0000});
+
+            const hourHand = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.15, 0.01), handMat);
+            hourHand.position.z = 0.02; 
+            hourHand.geometry.translate(0, 0.075, 0); 
+            clockGroup.add(hourHand);
+            clockHands.hour = hourHand;
+
+            const minuteHand = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.22, 0.01), handMat);
+            minuteHand.position.z = 0.025;
+            minuteHand.geometry.translate(0, 0.11, 0);
+            clockGroup.add(minuteHand);
+            clockHands.minute = minuteHand;
+
+            const secondHand = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.25, 0.01), secMat);
+            secondHand.position.z = 0.03;
+            secondHand.geometry.translate(0, 0.125, 0);
+            clockGroup.add(secondHand);
+            clockHands.second = secondHand;
+
+            const center = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.04, 16), handMat);
+            center.rotation.x = Math.PI / 2;
+            clockGroup.add(center);
+
+            scene.add(clockGroup);
+        }
+
+        function updateClock() {
+            if (!clockGroup) return;
+            const now = new Date();
+            const s = now.getSeconds();
+            const m = now.getMinutes();
+            const h = now.getHours();
+
+            clockHands.second.rotation.z = -s * (Math.PI / 30);
+            clockHands.minute.rotation.z = -(m * (Math.PI / 30) + s * (Math.PI / 1800));
+            clockHands.hour.rotation.z = -(h % 12 * (Math.PI / 6) + m * (Math.PI / 360));
+
+            if (s !== lastClockSecond) {
+                lastClockSecond = s;
+                if (camera.position.distanceTo(clockGroup.position) < 2.0) {
+                    playSound('tick', 0.2, 1.0);
+                }
+            }
+        }
+        
+        function createPainting() {
+            new THREE.TextureLoader().load(PAINTING_URL, function(texture) {
+                const paintingWidth = 1.2; const paintingHeight = paintingWidth * (580/1080);
+                const frameMaterial = new THREE.MeshBasicMaterial({ color: 0x654321 }); 
+                const paintingGroup = new THREE.Group();
+                paintingGroup.add(new THREE.Mesh(new THREE.BoxGeometry(paintingWidth * 0.9, paintingHeight * 0.9, 0.01), new THREE.MeshBasicMaterial({ map: texture })));
+                const frameThickness = 0.05; const frameDepth = 0.03;
+                const topFrame = new THREE.Mesh(new THREE.BoxGeometry(paintingWidth + frameThickness*2, frameThickness, frameDepth), frameMaterial); topFrame.position.y = paintingHeight/2 + frameThickness/2; paintingGroup.add(topFrame);
+                const bottomFrame = new THREE.Mesh(new THREE.BoxGeometry(paintingWidth + frameThickness*2, frameThickness, frameDepth), frameMaterial); bottomFrame.position.y = -paintingHeight/2 - frameThickness/2; paintingGroup.add(bottomFrame);
+                const leftFrame = new THREE.Mesh(new THREE.BoxGeometry(frameThickness, paintingHeight, frameDepth), frameMaterial); leftFrame.position.x = -paintingWidth/2 - frameThickness/2; paintingGroup.add(leftFrame);
+                const rightFrame = new THREE.Mesh(new THREE.BoxGeometry(frameThickness, paintingHeight, frameDepth), frameMaterial); rightFrame.position.x = paintingWidth/2 + frameThickness/2; paintingGroup.add(rightFrame);
+                paintingGroup.position.set(-2.4, 1.5 + ROOM_ELEVATION, 0.5); paintingGroup.rotation.y = Math.PI/2; paintingGroup.name = "PAINTING";
+                scene.add(paintingGroup);
+            });
+        }
+
+        function createWebScreen() {
+            const div = document.createElement('div'); div.style.width = '854px'; div.style.height = '480px'; div.style.backgroundColor = '#000';
+            screenIframe = document.createElement('iframe'); screenIframe.src = 'about:blank'; screenIframe.style.width = '100%'; screenIframe.style.height = '100%'; screenIframe.style.border = 'none';
+            screenIframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms'); screenIframe.setAttribute('referrerpolicy', 'no-referrer');
+            div.appendChild(screenIframe);
+            const object = new THREE.CSS3DObject(div); object.position.set(0, 1.05 + ROOM_ELEVATION, -2.479); 
+            const sc = 0.8 / 854; object.scale.set(sc, sc, 1); cssScene.add(object);
+            const maskMesh = new THREE.Mesh(new THREE.PlaneGeometry(854 * sc, 480 * sc), new THREE.MeshBasicMaterial({ color: 0x000000, opacity: 0, blending: THREE.NoBlending, side: THREE.DoubleSide }));
+            maskMesh.position.copy(object.position); maskMesh.rotation.copy(object.rotation); scene.add(maskMesh);
+        }
+
+        function toggleFullscreen() {
+            const de = document.documentElement;
+            const rfs = de.requestFullscreen || de.webkitRequestFullScreen || de.mozRequestFullScreen || de.msRequestFullscreen;
+            if (rfs) rfs.call(de).catch(e => console.log(e));
+        }
+
+        function sitDown() {
+            isSitting = true; isSleeping = false; document.exitPointerLock(); targetFOV = 48; yaw = 0; pitch = 0; playSound('chair', 0.7);
+            document.getElementById('css3dLayer').style.zIndex = 2; document.getElementById('screenOverlay').style.display = 'none';
+            if (screenIframe.src === 'about:blank' || screenIframe.src === window.location.href + 'about:blank') { setTimeout(() => { if(isSitting) document.getElementById('browserSelection').style.display = 'block'; }, 100); } 
+            else { document.getElementById('controlPanel').style.display = 'flex'; document.getElementById('exitSeatBtn').style.display = 'block'; document.getElementById('exitBedBtn').style.display = 'none'; document.getElementById('css3dLayer').style.pointerEvents = 'auto'; }
+            document.getElementById('crosshair').style.opacity = '0'; document.getElementById('joystick').style.display = 'none'; document.getElementById('jumpBtn').style.display = 'none';
+            document.getElementById('settingsBtn').style.display = 'none';
+            if (footstepInterval) { clearInterval(footstepInterval); footstepInterval = null; }
+            if (musicEnabled && backgroundMusic && backgroundMusic.paused && musicLoaded) backgroundMusic.play().catch(()=>{});
+        }
+
+        function sleepDown() {
+            isSleeping = true; isSitting = false; document.exitPointerLock(); playSound('bed', 0.6);
+            document.getElementById('crosshair').style.opacity = '0'; document.getElementById('joystick').style.display = 'none'; document.getElementById('jumpBtn').style.display = 'none';
+            document.getElementById('settingsBtn').style.display = 'none';
+            document.getElementById('controlPanel').style.display = 'flex'; document.getElementById('exitSeatBtn').style.display = 'none'; document.getElementById('exitBedBtn').style.display = 'block';
+            document.querySelectorAll('.nav-btn').forEach(b => b.style.display = 'none'); document.getElementById('screenOverlay').style.display = 'block';
+            yaw = -Math.PI / 2; pitch = 0.1;
+            if (footstepInterval) { clearInterval(footstepInterval); footstepInterval = null; }
+            if (musicEnabled && backgroundMusic && backgroundMusic.paused && musicLoaded) backgroundMusic.play().catch(()=>{});
+        }
+
+        function standUp() {
+            isSitting = false; isSleeping = false; targetFOV = 75; document.getElementById('css3dLayer').style.zIndex = 0;
+            document.getElementById('screenOverlay').style.display = 'block'; document.getElementById('css3dLayer').style.pointerEvents = 'none'; playSound('click', 0.5);
+            if (camera.position.z < 0) camera.position.z += 0.8; else camera.position.x += 0.8; camera.position.y = playerHeight + ROOM_ELEVATION; 
+            document.getElementById('browserSelection').style.display = 'none'; document.getElementById('controlPanel').style.display = 'none';
+            document.querySelectorAll('.nav-btn').forEach(b => b.style.display = 'block'); document.getElementById('crosshair').style.opacity = '1.0';
+            document.getElementById('settingsBtn').style.display = 'flex';
+            if(fixedJoystick) document.getElementById('joystick').style.display = 'block';
+            if(!isSitting && !isSleeping) document.getElementById('jumpBtn').style.display = 'flex';
+            if (musicEnabled && backgroundMusic && backgroundMusic.paused && musicLoaded) backgroundMusic.play().catch(()=>{});
+        }
+
+        function openNotebook() {
+            document.exitPointerLock();
+            document.getElementById('notebookOverlay').style.display = 'flex';
+            setTimeout(() => { document.getElementById('notebookOverlay').style.opacity = '1'; }, 10);
+            playSound('page', 0.6);
+            isSitting = true; 
+        }
+
+        function closeNotebook() {
+            document.getElementById('notebookOverlay').style.opacity = '0';
+            setTimeout(() => { document.getElementById('notebookOverlay').style.display = 'none'; }, 300);
+            playSound('click', 0.4);
+            isSitting = false; 
+            document.body.requestPointerLock();
+        }
+
+        function loadPage(url) {
+            let finalUrl = url; if (!url.startsWith('http://') && !url.startsWith('https://')) finalUrl = 'https://' + url;
+            try { playSound('click', 0.6); screenIframe.src = finalUrl; document.getElementById('browserSelection').style.display = 'none'; document.getElementById('controlPanel').style.display = 'flex'; document.getElementById('exitSeatBtn').style.display = 'block'; document.getElementById('exitBedBtn').style.display = 'none'; document.getElementById('css3dLayer').style.pointerEvents = 'auto'; document.getElementById('screenOverlay').style.display = 'none'; document.getElementById('jumpBtn').style.display = 'none'; if (musicEnabled && backgroundMusic && backgroundMusic.paused && musicLoaded) backgroundMusic.play().catch(()=>{}); } catch (e) { alert('无法加载该网页，请检查网址格式是否正确。'); }
+        }
+
+        function setupInputs() {
+            document.addEventListener('keydown', (e) => {
+                if(!isGameStarted) return;
+                if(document.getElementById('notebookOverlay').style.display === 'flex') {
+                    if(e.code === 'Escape' || e.code === 'KeyE') closeNotebook();
+                    return;
+                }
+
+                if(e.code === 'KeyW') moveForward = true; if(e.code === 'KeyS') moveBackward = true; if(e.code === 'KeyA') moveLeft = true; if(e.code === 'KeyD') moveRight = true;
+                if(e.code === 'Space' && !isSitting && !isSleeping && isOnGround) jump();
+                
+                // 按 E 键交互
+                if(e.code === 'KeyE' && !isSitting && !isSleeping) { 
+                    const target = getRayTarget();
+                    // 只有距离小于交互距离时才触发动作
+                    if (target && target.dist < INTERACTION_DISTANCE) {
+                        const type = target.type;
+                        if(type === "chair") sitDown(); 
+                        else if(type === "bed") sleepDown(); 
+                        else if(type === "door") toggleDoor();
+                        else if(type === "notebook") openNotebook(); 
+                    }
+                }
+                if(e.code === 'Escape' && (isSitting || isSleeping)) standUp();
+            });
+            document.addEventListener('keyup', (e) => {
+                if(e.code === 'KeyW') moveForward = false; if(e.code === 'KeyS') moveBackward = false; if(e.code === 'KeyA') moveLeft = false; if(e.code === 'KeyD') moveRight = false;
+            });
+            document.addEventListener('mousedown', (e) => {
+                if(!isGameStarted && (e.target.closest('#settingsPanel'))) return;
+                
+                if(document.getElementById('notebookOverlay').style.display === 'flex') return;
+
+                if(!isGameStarted || e.target.closest('button,input') || e.target.closest('#settingsPanel') || e.target.closest('#controlPanel') || e.target.closest('#settingsBtn') || isSitting) return;
+                mouseDownTime = performance.now();
+            });
+            document.addEventListener('mouseup', (e) => {
+                if(!isGameStarted && (e.target.closest('#settingsPanel'))) return;
+                if(document.getElementById('notebookOverlay').style.display === 'flex') return;
+
+                if(!isGameStarted || e.target.closest('button,input') || e.target.closest('#settingsPanel') || e.target.closest('#controlPanel') || e.target.closest('#settingsBtn') || isSitting) return;
+                if(performance.now() - mouseDownTime < 250) {
+                    const target = getRayTarget();
+                    // 点击交互
+                    if (target && target.dist < INTERACTION_DISTANCE) {
+                        const type = target.type;
+                        if(type === "chair") sitDown(); 
+                        else if(type === "bed") sleepDown(); 
+                        else if(type === "door") toggleDoor(); 
+                        else if(type === "notebook") openNotebook();
+                        else document.body.requestPointerLock();
+                    } else {
+                        document.body.requestPointerLock();
+                    }
+                }
+            });
+            document.addEventListener('mousemove', (e) => {
+                if(!isGameStarted) return;
+                if (document.pointerLockElement === document.body || ((isSitting || isSleeping) && e.buttons === 4) || (isSleeping && e.buttons === 1)) {
+                    yaw -= e.movementX * lookSpeed * 0.5; pitch -= e.movementY * lookSpeed * 0.5; pitch = Math.max(-1.4, Math.min(1.4, pitch));
+                }
+            });
+            
+            document.getElementById('settingsBtn').onclick = (e) => {
+                e.stopPropagation();
+                document.exitPointerLock();
+                document.getElementById('settingsPanel').style.display = 'block';
+                playSound('click', 0.5);
+            };
+
+            // Bindings
+            document.getElementById('jumpBtn').onmousedown = () => { if(isGameStarted && !isSitting && !isSleeping && isOnGround) jump(); };
+            document.getElementById('jumpBtn').ontouchstart = (e) => { e.preventDefault(); if(isGameStarted && !isSitting && !isSleeping && isOnGround) jump(); };
+            document.getElementById('customUrlBtn').onclick = () => { const urlInput = document.getElementById('customUrlInput'); if (urlInput.value.trim() !== '') { loadPage(urlInput.value.trim()); urlInput.value = ''; } };
+            document.getElementById('exitSeatBtn').onclick = standUp; document.getElementById('exitBedBtn').onclick = standUp;
+            document.getElementById('selectPageBtn').onclick = () => { playSound('click', 0.6); document.getElementById('browserSelection').style.display = 'block'; document.getElementById('controlPanel').style.display = 'none'; document.getElementById('css3dLayer').style.pointerEvents = 'none'; document.getElementById('screenOverlay').style.display = 'block'; document.getElementById('jumpBtn').style.display = 'none'; };
+            document.getElementById('refreshPageBtn').onclick = () => { playSound('click', 0.5); if (screenIframe.src && screenIframe.src !== 'about:blank') screenIframe.src = screenIframe.src; };
+            document.getElementById('closeSettings').onclick = () => { playSound('click', 0.5); document.getElementById('settingsPanel').style.display = 'none'; };
+            
+            document.getElementById('fpsToggle').onchange = (e) => { showFPS = e.target.checked; document.getElementById('fpsCounter').style.display = showFPS ? 'block' : 'none'; };
+            document.getElementById('joystickToggle').onchange = (e) => { fixedJoystick = e.target.checked; const j = document.getElementById('joystick'); if(fixedJoystick && isGameStarted) { j.style.display = 'block'; j.style.left = '50px'; j.style.bottom = '50px'; j.style.top = 'auto'; } else { j.style.display = 'none'; } };
+            document.getElementById('soundToggle').onchange = toggleSound;
+            document.getElementById('musicToggle').onchange = toggleBackgroundMusic;
+
+            // 抗锯齿设置逻辑
+            const aaToggle = document.getElementById('aaToggle');
+            const aaContainer = document.getElementById('aaLevelContainer');
+            const aaSelect = document.getElementById('aaLevel');
+
+            aaToggle.onchange = (e) => {
+                if(e.target.checked) {
+                    aaContainer.style.display = 'flex';
+                    applyAAConfig();
+                } else {
+                    aaContainer.style.display = 'none';
+                    renderer.setPixelRatio(1); // 默认关闭状态
+                }
+            };
+            aaSelect.onchange = () => applyAAConfig();
+
+            function applyAAConfig() {
+                const val = aaSelect.value;
+                if(val === 'low') renderer.setPixelRatio(0.7);
+                else if(val === 'mid') renderer.setPixelRatio(1.0);
+                else if(val === 'high') renderer.setPixelRatio(window.devicePixelRatio); // 使用设备原生像素比消除锯齿
+            }
+
+            document.getElementById('startButton').onclick = startGameLogic;
+
+            document.addEventListener('touchstart', handleTouchStart, { passive: false });
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd, { passive: false });
+        }
+        
+        function jump() { if(isOnGround && !isSitting && !isSleeping) { playSound('jump', 0.8); jumpVelocity = jumpPower; isJumping = true; isOnGround = false; } }
+        function playFootstep() { if (!isSitting && !isSleeping && soundEnabled) { const now = performance.now(); if (now - lastFootstepTime > FOOTSTEP_INTERVAL) { playSound('footstep', 0.4, 0.8 + Math.random() * 0.4); lastFootstepTime = now; } } }
+        function updateFootsteps() { const isMoving = moveForward || moveBackward || moveLeft || moveRight || (joystickId !== null && (Math.abs(joyMoveX) > 0.1 || Math.abs(joyMoveY) > 0.1)); if (isMoving && !isSitting && !isSleeping && isOnGround) { playFootstep(); if (!footstepInterval) footstepInterval = setInterval(playFootstep, FOOTSTEP_INTERVAL); } else { if (footstepInterval) { clearInterval(footstepInterval); footstepInterval = null; } } }
+
+        // --- 新的射线检测函数 (通用) ---
+        function getRayTarget() {
+            raycaster.setFromCamera(centerPoint, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            if (intersects.length > 0) {
+                const hit = intersects[0];
+                let cur = hit.object;
+                while(cur) { 
+                    if (cur.name === "CHAIR_BODY") return { type: "chair", dist: hit.distance };
+                    if (cur.name === "BED_BODY") return { type: "bed", dist: hit.distance };
+                    if (cur.name === "PAINTING") return { type: "painting", dist: hit.distance };
+                    if (cur.name === "DOOR_HINGE") return { type: "door", dist: hit.distance };
+                    if (cur.name === "NOTEBOOK_BODY") return { type: "notebook", dist: hit.distance };
+                    if (cur.name === "CLOCK_GROUP") return { type: "clock", dist: hit.distance };
+                    if (cur.name === "BOOKSHELF_GROUP") return { type: "bookshelf", dist: hit.distance };
+                    if (cur.name === "LAMP_GROUP") return { type: "lamp", dist: hit.distance };
+                    cur = cur.parent; 
+                }
+            }
+            return null;
+        }
+
+        function handleTouchStart(e) {
+            if(!isGameStarted || isSitting) return;
+            if(document.getElementById('notebookOverlay').style.display === 'flex') return;
+            if(e.target.closest('button,input') || e.target.closest('#settingsPanel') || e.target.closest('#controlPanel') || e.target.closest('#settingsBtn')) return;
+            if(e.touches.length === 1) mouseDownTime = performance.now();
+            e.preventDefault();
+            for (let t of e.changedTouches) {
+                if (t.clientX < window.innerWidth / 2 && joystickId === null && !isSleeping) {
+                    joystickId = t.identifier;
+                    const joyEl = document.getElementById('joystick');
+                    if (!fixedJoystick) { joyStartX = t.clientX; joyStartY = t.clientY; joyEl.style.display = 'block'; joyEl.style.left = (t.clientX-60)+'px'; joyEl.style.top = (t.clientY-60)+'px'; joyEl.style.bottom = 'auto'; } 
+                    else { const rect = joyEl.getBoundingClientRect(); joyStartX = rect.left + 60; joyStartY = rect.top + 60; }
+                } else { lookTouchId = t.identifier; lastLookX = t.clientX; lastLookY = t.clientY; }
+            }
+        }
+
+        function handleTouchMove(e) {
+            if(!isGameStarted) return;
+            for (let t of e.changedTouches) {
+                if (t.identifier === joystickId && !isSleeping) {
+                    let dx = t.clientX - joyStartX, dy = t.clientY - joyStartY;
+                    const dist = Math.sqrt(dx*dx + dy*dy); if (dist > 40) { dx *= 40/dist; dy *= 40/dist; }
+                    document.getElementById('knob').style.transform = `translate(${dx}px, ${dy}px) translateZ(0)`;
+                    joyMoveX = dx / 40; joyMoveY = dy / 40;
+                } else if (t.identifier === lookTouchId) {
+                    yaw -= (t.clientX - lastLookX) * lookSpeed; pitch -= (t.clientY - lastLookY) * lookSpeed; pitch = Math.max(-1.4, Math.min(1.4, pitch));
+                    lastLookX = t.clientX; lastLookY = t.clientY;
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            if(!isGameStarted) return;
+            const duration = performance.now() - mouseDownTime;
+            for (let t of e.changedTouches) {
+                if (t.identifier === lookTouchId && duration < 200 && !isSitting && !isSleeping) {
+                    const target = getRayTarget();
+                    if(target && target.dist < INTERACTION_DISTANCE) {
+                        const type = target.type;
+                        if(type === "chair") sitDown(); 
+                        else if(type === "bed") sleepDown(); 
+                        else if(type === "door") toggleDoor();
+                        else if(type === "notebook") openNotebook();
+                    }
+                }
+                if (t.identifier === joystickId) {
+                    joystickId = null; joyMoveX = 0; joyMoveY = 0;
+                    document.getElementById('knob').style.transform = `translate(0,0) translateZ(0)`;
+                    if(!fixedJoystick) document.getElementById('joystick').style.display = 'none';
+                }
+                if (t.identifier === lookTouchId) lookTouchId = null;
+            }
+        }
+
+        function checkCollision(x, z) {
+            const mapLimit = MAP_LIMIT; 
+            if (x < -mapLimit || x > mapLimit || z < -mapLimit || z > mapLimit) {
+                return true;
+            }
+
+            const playerRadius = 0.3;
+            for (let tree of treeColliders) {
+                const dx = x - tree.x;
+                const dz = z - tree.z;
+                const distSq = dx*dx + dz*dz;
+                const minDist = playerRadius + tree.radius;
+                if (distSq < minDist * minDist) {
+                    return true;
+                }
+            }
+
+            const isPointInRect = (px, pz, minX, maxX, minZ, maxZ) => { return px > minX && px < maxX && pz > minZ && pz < maxZ; };
+            if (isPointInRect(x, z, -2.6, 2.6, -3.2, -2.8)) return true;
+            if (isPointInRect(x, z, -2.7, -2.3, -3.2, 3.2)) return true;
+            if (isPointInRect(x, z, 2.3, 2.7, -3.2, 3.2)) return true;
+            if (isPointInRect(x, z, -2.7, -0.45, 2.8, 3.2)) return true;
+            if (isPointInRect(x, z, 0.45, 2.7, 2.8, 3.2)) return true;
+            if (!isDoorOpen && isPointInRect(x, z, -0.45, 0.45, 2.9, 3.1)) return true;
+            if (isPointInRect(x, z, -2.3, 2.3, -2.8, 2.8)) { if (z < -1.8 && Math.abs(x) < 1.1) return true; if (x < -0.9 && z > 0.6 && z < 2.9) return true; if (Math.abs(x) < 0.2 && z > -1.75 && z < -1.45) return true; }
+            
+            return false;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const now = performance.now();
+            if (now - lastTime >= 1000) { if(showFPS) document.getElementById('fpsCounter').innerText = "FPS: " + frameCount; frameCount = 0; lastTime = now; }
+            frameCount++;
+
+            if (doorGroup) doorGroup.rotation.y += (doorTargetRotation - doorGroup.rotation.y) * 0.1;
+
+            if (!isGameStarted) {
+                const time = now * 0.001;
+                camera.position.y = startCameraPos.y + Math.sin(time) * 0.05; 
+                camera.lookAt(startLookAt);
+                renderer.render(scene, camera);
+                cssRenderer.render(cssScene, camera);
+                return;
+            }
+            
+            updateBarriersAndSign();
+            updateClock(); 
+
+            if (Math.abs(camera.fov - targetFOV) > 0.1) { camera.fov += (targetFOV - camera.fov) * 0.1; camera.updateProjectionMatrix(); }
+
+            if (!isSitting && !isSleeping) {
+                const groundHeight = getGroundHeight(camera.position.x, camera.position.z);
+                const currentFloorY = groundHeight + playerHeight;
+                camera.position.y += jumpVelocity; jumpVelocity -= gravity;
+                if (camera.position.y <= currentFloorY) { camera.position.y = currentFloorY; jumpVelocity = 0; isJumping = false; isOnGround = true; if (jumpVelocity < -0.05) playSound('land', 0.6); } else { isOnGround = false; }
+                if (camera.position.z < 3 && camera.position.z > -3 && Math.abs(camera.position.x) < 2.5) { const ceilingHeight = 2.8 + ROOM_ELEVATION; if (camera.position.y >= ceilingHeight) { camera.position.y = ceilingHeight; jumpVelocity = 0; } }
+                document.getElementById('jumpBtn').style.display = 'flex'; updateFootsteps();
+            } else { document.getElementById('jumpBtn').style.display = 'none'; if (footstepInterval) { clearInterval(footstepInterval); footstepInterval = null; } }
+
+            if (isSitting && document.getElementById('notebookOverlay').style.display !== 'flex') {
+                const targetPos = { x: 0, y: 1.05 + ROOM_ELEVATION, z: -1.95 }; camera.position.x += (targetPos.x - camera.position.x) * 0.1; camera.position.y += (targetPos.y - camera.position.y) * 0.1; camera.position.z += (targetPos.z - camera.position.z) * 0.1;
+            } else if (isSleeping) {
+                const targetPos = { x: -1.7, y: 0.6 + ROOM_ELEVATION, z: 2.5 }; camera.position.x += (targetPos.x - camera.position.x) * 0.1; camera.position.y += (targetPos.y - camera.position.y) * 0.1; camera.position.z += (targetPos.z - camera.position.z) * 0.1;
+            } else {
+                let moveVec = new THREE.Vector3(0, 0, 0);
+                if (moveForward) moveVec.z -= 1; if (moveBackward) moveVec.z += 1; if (moveLeft) moveVec.x -= 1; if (moveRight) moveVec.x += 1;
+                if (joystickId !== null) { moveVec.x += joyMoveX; moveVec.z += joyMoveY; }
+                if (moveVec.lengthSq() > 0.001) {
+                    moveVec.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                    const nx = camera.position.x + moveVec.x * moveSpeed; const nz = camera.position.z + moveVec.z * moveSpeed;
+                    if (!checkCollision(nx, camera.position.z)) camera.position.x = nx;
+                    if (!checkCollision(camera.position.x, nz)) camera.position.z = nz;
+                }
+            }
+            camera.rotation.set(pitch, yaw, 0, 'YXZ');
+            renderer.render(scene, camera);
+            cssRenderer.render(cssScene, camera);
+            
+            // --- UI 提示与描述逻辑 ---
+            const hint = document.getElementById('interactionText');
+            const target = getRayTarget();
+            
+            if (!isSitting && !isSleeping && target) {
+                const dist = target.dist;
+                const type = target.type;
+                let showHint = false;
+
+                // 交互类物体 (距离 < 2.0)
+                if (dist < INTERACTION_DISTANCE) {
+                    if (type === "chair") { hint.innerText = "点击或按 E 开始上网"; showHint = true; } 
+                    else if (type === "bed") { hint.innerText = "点击或按 E 躺下休息"; showHint = true; } 
+                    else if (type === "door") { hint.innerText = isDoorOpen ? "点击或按 E 关门" : "点击或按 E 开门"; showHint = true; }
+                    else if (type === "notebook") { hint.innerText = "点击或按 E 查看笔记"; showHint = true; }
+                }
+
+                // 描述类物体 (距离 < 6.0，如果已经被交互覆盖则不显示)
+                if (!showHint && dist < DESCRIPTION_DISTANCE) {
+                    if (type === "clock") { hint.innerText = "滴滴答答，时间就这样子被消耗了。"; showHint = true; }
+                    else if (type === "bookshelf") { hint.innerText = "知识是人类进步的阶梯，但前提是我得看得懂。"; showHint = true; }
+                    else if (type === "lamp") { hint.innerText = "核能灯，你值得拥有！"; showHint = true; }
+                    else if (type === "painting") { hint.innerText = "壁画【其实是测试啦】"; showHint = true; }
+                }
+
+                if(showHint) hint.style.display = 'block';
+                else hint.style.display = 'none';
+
+            } else { hint.style.display = 'none'; }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
