@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover">
-    <!-- 修改点 1：更新标题版本号 -->
     <title>我的 3D 房间 v0.17 - 星空完整版</title>
     
     <!-- 引入外部样式表 -->
+    <!-- 请确保您的服务器上 /3DROOM/ 目录下有 style.css 文件 -->
     <link rel="stylesheet" href="/3DROOM/style.css">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -96,9 +96,8 @@
 
     <div id="startScreen">
         <h1>3D ROOM</h1>
-        <!-- 修改点 2：更新显示版本号 -->
         <div id="versionTag">v0.17</div>
-        <!-- 修改点 3：增加累计运行时间显示区域 -->
+        <!-- 累计运行时间显示区域 -->
         <div id="runTimeDisplay" style="margin-top: 10px; font-size: 14px; color: #bbb; font-family: 'Consolas', monospace; text-shadow: 0 0 5px rgba(0,0,0,0.8);"></div>
         
         <button id="startButton">ENTER ROOM</button>
@@ -177,7 +176,7 @@
             }
         }
 
-        // 修改点 4：初始化累计运行时间计算逻辑
+        // 初始化累计运行时间计算逻辑
         function initRunTimeCounter() {
             const startDate = new Date('2026-01-11T12:00:00'); // 设置开始时间
             const display = document.getElementById('runTimeDisplay');
@@ -186,7 +185,7 @@
                 const now = new Date();
                 let diff = now - startDate;
                 
-                // 防止时间倒流（如果用户系统时间错误）
+                // 防止时间倒流
                 if (diff < 0) diff = 0;
 
                 const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -977,7 +976,9 @@
         function handleTouchStart(e) {
             if(!isGameStarted || isSitting) return;
             if(document.getElementById('notebookOverlay').style.display === 'flex') return;
-            if(e.target.closest('button,input') || e.target.closest('#settingsPanel') || e.target.closest('#controlPanel') || e.target.closest('#settingsBtn') return;
+            // 修复点：这里添加了之前遗漏的右括号 ')'
+            if(e.target.closest('button,input') || e.target.closest('#settingsPanel') || e.target.closest('#controlPanel') || e.target.closest('#settingsBtn')) return;
+            
             if(e.touches.length === 1) mouseDownTime = performance.now();
             e.preventDefault();
             for (let t of e.changedTouches) {
