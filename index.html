@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover">
-    <title>我的 3D 房间 v0.16 - 星空完整版</title>
+    <!-- 修改点 1：更新标题版本号 -->
+    <title>我的 3D 房间 v0.17 - 星空完整版</title>
     
     <!-- 引入外部样式表 -->
     <link rel="stylesheet" href="/3DROOM/style.css">
@@ -95,7 +96,11 @@
 
     <div id="startScreen">
         <h1>3D ROOM</h1>
-        <div id="versionTag">v0.16</div>
+        <!-- 修改点 2：更新显示版本号 -->
+        <div id="versionTag">v0.17</div>
+        <!-- 修改点 3：增加累计运行时间显示区域 -->
+        <div id="runTimeDisplay" style="margin-top: 10px; font-size: 14px; color: #bbb; font-family: 'Consolas', monospace; text-shadow: 0 0 5px rgba(0,0,0,0.8);"></div>
+        
         <button id="startButton">ENTER ROOM</button>
         <div id="credits">by雀云andGemini,Suno</div>
     </div>
@@ -155,7 +160,7 @@
 
         const MUSIC_URL = 'https://d6.qyshare.store:2083/s/TBVWTxUNFQJUKFCVA50QNUVKFCVA504PGgQBVQMaKFCVA50wIKFCVA50BxpWKFCVA50KFCVA505RGlIOKFCVA50QUKFCVA50UVRSBKFCVA50QHKFCVA50BUbFVhERH9YREMVDRVYREQZRk5CWRlYRVKFCVA50VGxVYRER8Uk4VDRVCR1tYVlMYBQcFKFCVA50RgHBhgGBxgKFCVA50VgcDBg9TBxoDVVIHGgNSVgEaVgFSVhoGDwEBDlIKFCVA50UQMKFCVA50DgUZVV5ZFRsVVlQVDRUCBVUPKFCVA50g4DKFCVA50xpWDwEKFCVA50GgMFKFCVA50lMaVlMCBRpWVgYPVQ4HUQNVDgMVGxVZVlpSFQ0VekJEXlQZWkcEFRsVVFhZQ1JZQ2NOR1IVDRVWQlNeWBhaR1JQFRsVVlMVDRUOVKFCVA509RKFCVA50lECUhpVB1YEGgMPBFIaDw8KFCVA50BRpVUgNSBlYGBKFCVA509WU1EVSg==';
         const PAINTING_URL = 'https://d2.qyshare.store/s/TBVWTxUNFVFRVlRRVQcBGgBVU1QaKFCVA50wVWDhpWVKFCVA50MKFCVA50GgNVB1UCKFCVA50KFCVA50RUBKFCVA50EHURUbFVhERH9YREMVDRVYREQZRk5CWRlYRVKFCVA50VGxVYRER8Uk4VDRVCR1tYVlMYBQcFKFCVA50RgHBhgGBhgEDwICKFCVA50KFCVA50QEKFCVA50BoCUQ4OGgMDDwQaDwZTBBoDBKFCVA50YHBw4KFCVA50BlVUVFEZVV5ZFRsVVlQVDRVUVKFCVA508OBwMOKFCVA50hoCUwYCGgMGBKFCVA504aDwdTBhpTKFCVA501NSD1MDKFCVA50FMCKFCVA50KFCVA50UVGxVZVlpSFQ0VfnpwaKFCVA50UHBQEHBgYGaKFCVA50YFBgUGKFCVA50hlHWVKFCVA50VGxVUWFlDUllDY05HUhUNFV5aVlBSGEdZUBUbFVZTFQ0VVgVRBQQOBg8aVFJRKFCVA50xoDVgYPGlZVKFCVA50gKFCVA50aBwKFCVA50FVVMCKFCVA50w9SVlQOFUo=';
-        const NOTEBOOK_SOUND_URL = 'https://d2.qyun.store/s/TBVWTxUNFQNTUgICVQQEGgdTKFCVA501MaKFCVA50wEBUxoPVQQDGgQBU1NUBFNWBVIKFCVA50BBUbFVhERH9YREMVDRVYREQZRk5CWRlYRVKFCVA50VGxVYRER8Uk4VDRVCR1tYVlMYBQcFKFCVA50RgHBhgGBhgGDwcBUgBRUhpVVlIGGgMEKFCVA50FEaDwUGKFCVA50hpTVQIODgUBBFZVKFCVA50VYZVV5ZFRsVVlQVDRVUB1ZRUQNVBxoKFCVA50BwVSGgNSB1EaDgUDBhpVBQEOBVYOKFCVA50gNTBwQVGxVZVlpSFQ0VR1ZQUhpRW15HBhoGKFCVA50KFCVA508EBQUZWkcEFRsVVFhZQ1JZQ2NOR1IVDRVWQlNeWBhaR1JQFRsVVlMVDRUFUVIEVgcFKFCVA50hoEBFEEGgMGBlYaDwBTKFCVA50RpSDgUODlJWKFCVA501EFKFCVA50VQVSg==';
+        const NOTEBOOK_SOUND_URL = 'https://d2.qyun.store/s/TBVWTxUNFQNTUgICVQQEGgdTKFCVA501MaKFCVA50wEBUxoPVQQDGgQBU1NUBFNWBVIKFCVA50BBUbFVhERH9YREMVDRVYREQZRk5CWRlYRVKFCVA50VGxVYRER8Uk4VDRVCR1tYVlMYBQcFKFCVA50RgHBhgGBhgGDwcBUgBRUhpVVlIGGgMEKFCVA50FEaDwUGKFCVA50hpTVQIODgUBBFZVKFCVA50VYZVV5ZFRsVVlQVDRVUB1ZRUQNVBxoKFCVA50BwVSGgNSB1EaDgUDBhpVBQEOBVYOKFCVA50gNTBwQVGxVZVlpSFQ0VR1ZQUhpRW15HBhoGKFCVA50KFCVA508EBQUZWkcEFRsVVFhZQ1JZQ2NOR1IVDRVWQlNeWBhaR1JQFRsVVlMVDRVWQlNeWBhaR1JQFRsVVlMVDRUFUVIEVgcFKFCVA50hoEBFEEGgMGBlYaDwBTKFCVA50RpSDgUODlJWKFCVA501EFKFCVA50VQVSg==';
         
         let isGameStarted = false; 
 
@@ -170,6 +175,30 @@
             } else {
                 overlay.style.display = 'none';
             }
+        }
+
+        // 修改点 4：初始化累计运行时间计算逻辑
+        function initRunTimeCounter() {
+            const startDate = new Date('2026-01-11T12:00:00'); // 设置开始时间
+            const display = document.getElementById('runTimeDisplay');
+            
+            function update() {
+                const now = new Date();
+                let diff = now - startDate;
+                
+                // 防止时间倒流（如果用户系统时间错误）
+                if (diff < 0) diff = 0;
+
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+                display.innerText = `累计运行: ${days}天 ${hours}时 ${minutes}分 ${seconds}秒`;
+            }
+            
+            setInterval(update, 1000);
+            update(); // 立即执行一次
         }
 
         function init() {
@@ -194,6 +223,7 @@
             document.getElementById('css3dLayer').appendChild(cssRenderer.domElement);
 
             initScreenOverlay();
+            initRunTimeCounter(); // 调用时间计算函数
             
             initAudio();
             initBackgroundMusic();
@@ -947,7 +977,7 @@
         function handleTouchStart(e) {
             if(!isGameStarted || isSitting) return;
             if(document.getElementById('notebookOverlay').style.display === 'flex') return;
-            if(e.target.closest('button,input') || e.target.closest('#settingsPanel') || e.target.closest('#controlPanel') || e.target.closest('#settingsBtn')) return;
+            if(e.target.closest('button,input') || e.target.closest('#settingsPanel') || e.target.closest('#controlPanel') || e.target.closest('#settingsBtn') return;
             if(e.touches.length === 1) mouseDownTime = performance.now();
             e.preventDefault();
             for (let t of e.changedTouches) {
